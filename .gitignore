@@ -1,0 +1,133 @@
+# ==============================
+# FASTAPI / PYTHON
+# ==============================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv/
+
+# Distribution / packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+pip-wheel-metadata/
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+
+# PyCharm / VS Code
+.idea/
+.vscode/
+
+# dotenv
+.env
+.env.*
+*.env
+
+# SQLite DB
+*.sqlite3
+db.sqlite3
+
+# Logs
+*.log
+
+
+# ==============================
+# FLUTTER
+# ==============================
+
+.dart_tool/
+.packages
+.pub/
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.flutter-versions
+.metadata
+pubspec.lock
+
+# Android
+**/android/**/gradle-wrapper.jar
+**/android/.gradle
+**/android/captures/
+**/android/local.properties
+**/android/app/debug
+**/android/app/profile
+**/android/app/release
+
+# iOS
+**/ios/Flutter/.last_build_id
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Pods/
+**/ios/.symlinks/
+**/ios/Runner.xcworkspace/
+**/ios/Runner.xcodeproj/project.xcworkspace/
+
+# Web build
+build/web/
+
+
+# ==============================
+# APK / IPA
+# ==============================
+
+*.apk
+*.aab
+*.ipa
+
+
+# ==============================
+# MAC / WINDOWS
+# ==============================
+
+.DS_Store
+Thumbs.db
+
+
+# ==============================
+# FIREBASE
+# ==============================
+
+google-services.json
+GoogleService-Info.plist
+
+
+# ==============================
+# FASTAPI MIGRATIONS (OPTIONAL)
+# ==============================
+
+alembic/versions/*.py
