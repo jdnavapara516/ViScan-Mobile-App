@@ -29,10 +29,19 @@ class UserCreate(UserBase):
     mobile_number: Optional[str] = None
     vehicle_number: Optional[str] = None
 
+class AdminUserUpdate(BaseModel):
+    email: Optional[EmailStr] = None
+    is_active: Optional[bool] = None
+    upi_id: Optional[str] = None
+    mobile_number: Optional[str] = None
+    wallet_balance: Optional[Decimal] = None
+    is_staff: Optional[bool] = None
+
 class UserResponse(UserBase):
     id: int
     is_active: bool
     profile: Optional[UserProfileResponse] = None
+    vehicles: List[VehicleResponse] = []
     class Config:
         from_attributes = True
 
@@ -67,6 +76,10 @@ class ViolationResponse(BaseModel):
     created: datetime
     class Config:
         from_attributes = True
+
+class AdminViolationUpdate(BaseModel):
+    amount: Optional[Decimal] = None
+    status: Optional[str] = None
 
 # Wallet Schemas
 class WalletDeposit(BaseModel):

@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException, status, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from typing import List
@@ -25,6 +26,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount media directory for static files
+app.mount("/media", StaticFiles(directory="media"), name="media")
 
 # Ensure media directory exists
 MEDIA_DIR = "media"
@@ -91,6 +95,10 @@ def login(login_data: schemas.LoginRequest, db: Session = Depends(get_db)):
     )
     return {"access_token": access_token, "token_type": "bearer"}
 
+@app.get("/me", response_model=schemas.UserResponse)
+def read_users_me(current_user: models.User = Depends(auth.get_current_active_user)):
+    return current_user
+
 @app.get("/user_dashboard")
 def get_user_dashboard(current_user: models.User = Depends(auth.get_current_active_user), db: Session = Depends(get_db)):
     vehicles = current_user.vehicles
@@ -107,6 +115,21 @@ def get_user_dashboard(current_user: models.User = Depends(auth.get_current_acti
         "vehicles": vehicles,
         "violations": violations
     }
+
+@app.get("/vehicles", response_model=List[schemas.VehicleResponse])
+def get_user_vehicles(current_user: models.User = Depends(auth.get_current_active_user), db: Session = Depends(get_db)):
+    return current_user.vehicles
+
+@app.post("/vehicles", response_model=schemas.VehicleResponse)
+def create_vehicle(vehicle_in: schemas.VehicleCreate, current_user: models.User = Depends(auth.get_current_active_user), db: Session = Depends(get_db)):
+    return add_vehicle(vehicle_in, current_user, db)
+
+@app.get("/violations", response_model=List[schemas.ViolationResponse])
+def get_user_violations(current_user: models.User = Depends(auth.get_current_active_user), db: Session = Depends(get_db)):
+    vehicles = current_user.vehicles
+    vehicle_ids = [v.id for v in vehicles]
+    violations = db.query(models.Violation).filter(models.Violation.vehicle_id.in_(vehicle_ids)).order_by(models.Violation.created.desc()).all()
+    return violations
 
 @app.post("/add_vehicle", response_model=schemas.VehicleResponse)
 def add_vehicle(vehicle_in: schemas.VehicleCreate, current_user: models.User = Depends(auth.get_current_active_user), db: Session = Depends(get_db)):
@@ -159,7 +182,7 @@ async def detect_violation(image: UploadFile = File(...), db: Session = Depends(
             break
     
     if not matching_vehicle:
-        raise HTTPException(status_code=404, detail=f"Vehicle not registered {plate_raw}")
+        return {"message": "Vehicle not registered — manual review required", "plate": plate_raw, "status": "unregistered"}
 
     amount = Decimal('500.00')
     violation = models.Violation(
@@ -220,7 +243,8 @@ def get_admin_dashboard(current_admin: models.User = Depends(auth.get_current_ad
         "users_count": len(users),
         "vehicles_count": len(vehicles),
         "violations": violations,
-        "users": users
+        "users": users,
+        "vehicles": vehicles
     }
 
 @app.post("/admin/vehicle", response_model=schemas.VehicleResponse)
@@ -266,3 +290,81 @@ def admin_delete_vehicle(vehicle_id: int, current_admin: models.User = Depends(a
     db.delete(vehicle)
     db.commit()
     return {"message": "Vehicle deleted successfully"}
+
+# Admin User CRUD
+@app.get("/admin/users", response_model=List[schemas.UserResponse])
+def admin_get_users(current_admin: models.User = Depends(auth.get_current_admin_user), db: Session = Depends(get_db)):
+    return db.query(models.User).all()
+
+@app.put("/admin/user/{user_id}", response_model=schemas.UserResponse)
+def admin_update_user(user_id: int, user_in: schemas.AdminUserUpdate, current_admin: models.User = Depends(auth.get_current_admin_user), db: Session = Depends(get_db)):
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if user_in.email is not None:
+        db_user.email = user_in.email
+    if user_in.is_active is not None:
+        db_user.is_active = user_in.is_active
+    
+    if db_user.profile:
+        if user_in.upi_id is not None:
+            db_user.profile.upi_id = user_in.upi_id
+        if user_in.mobile_number is not None:
+            db_user.profile.mobile_number = user_in.mobile_number
+        if user_in.wallet_balance is not None:
+            db_user.profile.wallet_balance = user_in.wallet_balance
+        if user_in.is_staff is not None:
+            db_user.profile.is_staff = user_in.is_staff
+            
+    db.commit()
+    db.refresh(db_user)
+    return db_user
+
+@app.delete("/admin/user/{user_id}")
+def admin_delete_user(user_id: int, current_admin: models.User = Depends(auth.get_current_admin_user), db: Session = Depends(get_db)):
+    db_user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    # Delete profile and vehicles first
+    if db_user.profile:
+        db.delete(db_user.profile)
+    for v in db_user.vehicles:
+        # Delete violations for vehicle
+        db.query(models.Violation).filter(models.Violation.vehicle_id == v.id).delete()
+        db.delete(v)
+        
+    db.delete(db_user)
+    db.commit()
+    return {"message": "User deleted successfully"}
+
+# Admin Violation CRUD
+@app.get("/admin/violations", response_model=List[schemas.ViolationResponse])
+def admin_get_violations(current_admin: models.User = Depends(auth.get_current_admin_user), db: Session = Depends(get_db)):
+    return db.query(models.Violation).order_by(models.Violation.created.desc()).all()
+
+@app.put("/admin/violation/{violation_id}", response_model=schemas.ViolationResponse)
+def admin_update_violation(violation_id: int, v_in: schemas.AdminViolationUpdate, current_admin: models.User = Depends(auth.get_current_admin_user), db: Session = Depends(get_db)):
+    violation = db.query(models.Violation).filter(models.Violation.id == violation_id).first()
+    if not violation:
+        raise HTTPException(status_code=404, detail="Violation not found")
+    
+    if v_in.amount is not None:
+        violation.amount = v_in.amount
+    if v_in.status is not None:
+        violation.status = v_in.status
+        
+    db.commit()
+    db.refresh(violation)
+    return violation
+
+@app.delete("/admin/violation/{violation_id}")
+def admin_delete_violation(violation_id: int, current_admin: models.User = Depends(auth.get_current_admin_user), db: Session = Depends(get_db)):
+    violation = db.query(models.Violation).filter(models.Violation.id == violation_id).first()
+    if not violation:
+        raise HTTPException(status_code=404, detail="Violation not found")
+    
+    db.delete(violation)
+    db.commit()
+    return {"message": "Violation deleted successfully"}

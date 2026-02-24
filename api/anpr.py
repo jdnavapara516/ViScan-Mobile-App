@@ -28,11 +28,12 @@ def get_gemini_ocr(cropped_image):
     color_converted = cv2.cvtColor(cropped_image, cv2.COLOR_BGR2RGB)
     pil_img = Image.fromarray(color_converted)
     
+    print("1")
     # Updated Prompt for Gemini 3
     prompt = "Read the characters on this vehicle license plate. Output ONLY the alphanumeric text. No spaces, no symbols."
     
     response = gemini_model.generate_content([prompt, pil_img])
-    
+    print(response.text.strip())
     return response.text.strip()
 
 def extract_plate(image_path):
